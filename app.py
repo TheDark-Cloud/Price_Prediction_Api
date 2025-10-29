@@ -1,6 +1,8 @@
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 import os
 from dotenv import load_dotenv
+from blueprints.prediction import prediction_bp
 
 
 def create_app():
@@ -12,6 +14,9 @@ def create_app():
 
     my_app.register_blueprint(prediction_bp)
 
+    db = SQLAlchemy(my_app)
+
+    return my_app
 
 if __name__ == '__main__':
-    app.run()
+    app = create_app()
