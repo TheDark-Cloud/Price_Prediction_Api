@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 from dotenv import load_dotenv
 from blueprints.prediction import prediction_bp
+from setting.init_db import db
 
 
 def create_app():

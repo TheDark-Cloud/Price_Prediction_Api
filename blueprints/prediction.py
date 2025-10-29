@@ -19,6 +19,8 @@ def fetch_data():
     except Exception as ex:
         return jsonify({"message": str(ex)}), 500
 
+    # sample of a responses: {"features" : [a1, a1, a3, ..., a7]
+
 
 @prediction_bp.route("/your home price prediction", methods=["POST"])
 @token_required

@@ -4,3 +4,6 @@ pyjwt
 joblib
 pandas
 flask_sqlalchemy
+scikit-learn
+seaborn
+numpy
