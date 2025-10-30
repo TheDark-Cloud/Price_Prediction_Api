@@ -1,46 +1,63 @@
 from flask import Blueprint
 from flask import request, jsonify
-from setting.token_auth import create_encoded_token, token_required, decode_token
+import pandas as pd
 
+from ml_model.ml_loader import load_pipeline
 
 prediction_bp = Blueprint('prediction_bp', __name__)
 
 
-@prediction_bp.route("/home-price-prediction-data", methods=["GET"])
-def fetch_data():
-    """Getting the datat from the users, which will be used for prediction later"""
+# Expected features in the same order used in training
+EXPECTED_FEATURES = [
+    'area','bedrooms','bathrooms','stories','mainroad','guestroom',
+    'basement','hotwaterheating','airconditioning','parking','prefarea',
+    'furnishingstatus'
+]
+
+@prediction_bp.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "model_loaded": True})
+
+
+
+@prediction_bp.route("/predict", methods=["POST"])
+def predict():
+    # Parse JSON body
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"message": "No data provided"}), 400
+        payload = request.get_json(force=True)
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
 
-        payload = create_encoded_token(data.jsonify())
-        return payload, 200
-    except Exception as ex:
-        return jsonify({"message": str(ex)}), 500
+    # Accept single record or list
+    records = payload if isinstance(payload, list) else [payload]
 
-    # sample of a response: {"features" : [a1, a1, a3, ..., a7]
-
-
-@prediction_bp.route("/your home price prediction", methods=["POST"])
-@token_required
-def predict(token):
+    # Build DataFrame
     try:
-        if not token:
-            return jsonify({"message": "No token provided"}), 400
+        df = pd.DataFrame(records)
+    except Exception:
+        return jsonify({"error": "Payload must be an object or list of objects"}), 400
 
-        if isinstance(token, str):
-            return jsonify({"message": "Wrong token formatting"}), 400
+    # Check missing features
+    missing = [f for f in EXPECTED_FEATURES if f not in df.columns]
+    if missing:
+        return jsonify({"error": f"Missing required features: {missing}"}), 400
 
+    # Keep only expected features and in same order
+    X = df[EXPECTED_FEATURES].copy()
 
-        payload = decode_token(token) # decoding the token
-        if not payload:
-            return jsonify({"message": "Invalid token"}), 400
+    # Basic numeric coercion for numeric columns
+    numeric_cols = ['area','bedrooms','bathrooms','stories','parking']
+    for col in numeric_cols:
+        X[col] = pd.to_numeric(X[col], errors='coerce')
 
-        model_feature = []
-        for key, value in payload.items():
-            model_feature.append(value)
+    if X[numeric_cols].isnull().any().any():
+        return jsonify({"error": "Numeric features must be valid numbers"}), 400
 
+    # Predict
+    try:
+        preds = pipeline.predict(X)
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
-    except Exception as ex:
-        return jsonify({"message": str(ex)}), 500
+    # Return float casted predictions
+    return jsonify({"predictions": [float(p) for p in preds]})
