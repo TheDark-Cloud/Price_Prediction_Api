@@ -1,22 +1,23 @@
 from flask_sqlalchemy import SQLAlchemy
 
-db: SQLAlchemy = SQLAlchemy()
+database: SQLAlchemy = SQLAlchemy()
 
-class Features(db.Model):
+class Features(database.Model):
     __tablename__ = 'features'
-    id = db.Column(db.Integer, primary_key=True)
-    area = db.Column(db.Float)
-    bedrooms = db.Column(db.Integer)
-    bathrooms = db.Column(db.Integer)
-    stories = db.Column(db.Integer)
-    mainroad = db.Column(db.Boolean)
-    guestroom = db.Column(db.Boolean)
-    basement = db.Column(db.Boolean)
-    hotwaterheating = db.Column(db.Boolean)
-    airconditioning = db.Column(db.Boolean)
-    parking = db.Column(db.Integer)
-    prefarea = db.Column(db.Boolean)
-    furnishingstatus = db.Column(db.String(20))
+    id = database.Column(database.Integer, primary_key=True)
+    area = database.Column(database.Float)
+    bedrooms = database.Column(database.Integer)
+    bathrooms = database.Column(database.Integer)
+    stories = database.Column(database.Integer)
+    mainroad = database.Column(database.Boolean)
+    guestroom = database.Column(database.Boolean)
+    basement = database.Column(database.Boolean)
+    hotwaterheating = database.Column(database.Boolean)
+    airconditioning = database.Column(database.Boolean)
+    parking = database.Column(database.Integer)
+    prefarea = database.Column(database.Boolean)
+    furnishingstatus = database.Column(database.String(20))
+    prediction = database.Column(database.Float)
 
 
 furnished_categories = ['furnished' 'semi-furnished' 'unfurnished']

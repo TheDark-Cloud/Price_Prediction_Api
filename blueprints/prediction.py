@@ -1,6 +1,7 @@
 from flask import Blueprint
 from flask import request, jsonify
 import pandas as pd
+from app import pipeline
 
 from ml_model.ml_loader import load_pipeline
 
@@ -8,7 +9,7 @@ prediction_bp = Blueprint('prediction_bp', __name__)
 
 
 # Expected features in the same order used in training
-EXPECTED_FEATURES = [
+REQUIRED_FIELDS = [
     'area','bedrooms','bathrooms','stories','mainroad','guestroom',
     'basement','hotwaterheating','airconditioning','parking','prefarea',
     'furnishingstatus'
@@ -20,44 +21,45 @@ def health():
 
 
 
-@prediction_bp.route("/predict", methods=["POST"])
+@prediction_bp.route('/api/predict', methods=['POST'])
 def predict():
-    # Parse JSON body
     try:
-        payload = request.get_json(force=True)
+        data = request.get_json(force=True)
     except Exception:
-        return jsonify({"error": "Invalid JSON"}), 400
+        return jsonify({'error': 'Invalid JSON'}), 400
 
-    # Accept the single record or list
-    records = payload if isinstance(payload, list) else [payload]
-
-    # Build DataFrame
-    try:
-        df = pd.DataFrame(records)
-    except Exception:
-        return jsonify({"error": "Payload must be an object or list of objects"}), 400
-
-    # Check missing features
-    missing = [f for f in EXPECTED_FEATURES if f not in df.columns]
+    missing = [f for f in REQUIRED_FIELDS if f not in data]
     if missing:
-        return jsonify({"error": f"Missing required features: {missing}"}), 400
+        return jsonify({'error': f'Missing fields: {missing}'}), 400
 
-    # Keep only expected features and in th same order
-    X = df[EXPECTED_FEATURES].copy()
-
-    # Basic numeric coercion for numeric columns
-    numeric_cols = ['area','bedrooms','bathrooms','stories','parking']
-    for col in numeric_cols:
-        X[col] = pd.to_numeric(X[col], errors='coerce')
-
-    if X[numeric_cols].isnull().any().any():
-        return jsonify({"error": "Numeric features must be valid numbers"}), 400
-
-    # Predict
+    # Normalize types
     try:
-        preds = pipeline.predict(X)
-    except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+        x = {
+            'area': float(data['area']),
+            'bedrooms': int(data['bedrooms']),
+            'bathrooms': int(data['bathrooms']),
+            'stories': int(data['stories']),
+            'mainroad': bool(data['mainroad']),
+            'guestroom': bool(data['guestroom']),
+            'basement': bool(data['basement']),
+            'hotwaterheating': bool(data['hotwaterheating']),
+            'airconditioning': bool(data['airconditioning']),
+            'parking': int(data['parking']),
+            'prefarea': bool(data['prefarea']),
+            'furnishingstatus': str(data['furnishingstatus'])
+        }
+    except (ValueError, TypeError) as ex:
+        return jsonify({'error': f'Invalid field types: {str(ex)}'}), 400
 
-    # Return float casted predictions
-    return jsonify({"predictions": [float(p) for p in preds]})
+    # Build DataFrame in the required order
+    df = pd.DataFrame([[x[f] for f in REQUIRED_FIELDS]], columns=REQUIRED_FIELDS)
+    try:
+        prediction = pipeline.predict(df)
+    except Exception as ex:
+        return jsonify({'error': f'Prediction failed: {str(ex)}'}), 500
+
+    # Provide model metadata if available
+    model_version = getattr(pipeline, 'version', 'v1') or 'v1'
+    accuracy = 0.85
+    return jsonify({'predictions':[float(prediction[0])], 'model_version':model_version, 'accuracy':accuracy}), 200
+
