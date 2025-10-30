@@ -15,5 +15,3 @@ def load_pipeline():
     print(f"Model loaded from {MODEL_PATH}")
 
     return joblib.load(MODEL_PATH)
-
-loaded_pipeline = load_pipeline()
