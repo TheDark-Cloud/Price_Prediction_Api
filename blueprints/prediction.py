@@ -28,7 +28,7 @@ def predict():
     except Exception:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    # Accept single record or list
+    # Accept the single record or list
     records = payload if isinstance(payload, list) else [payload]
 
     # Build DataFrame
@@ -42,7 +42,7 @@ def predict():
     if missing:
         return jsonify({"error": f"Missing required features: {missing}"}), 400
 
-    # Keep only expected features and in same order
+    # Keep only expected features and in th same order
     X = df[EXPECTED_FEATURES].copy()
 
     # Basic numeric coercion for numeric columns
