@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>House Price Predictor — v2.1.0</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="left">
+        <header class="left-header">
+          <div class="brand">
+            <h1>House Price Predictor</h1>
+            <p class="subtitle">Instant estimate from property features</p>
+          </div>
+          <div class="badge">v2.1.0</div>
+        </header>
+
+        <form id="predict-form" class="form" autocomplete="off" onsubmit="return false;">
+          <div class="fields">
+            <div class="field"><label>Area (sqft)</label><input name="area" type="number" step="0.1" required min="0.1" placeholder="e.g. 1200"></div>
+            <div class="field"><label>Bedrooms</label><input name="bedrooms" type="number" step="1" min="0" required></div>
+            <div class="field"><label>Bathrooms</label><input name="bathrooms" type="number" step="1" min="0" required></div>
+            <div class="field"><label>Stories</label><input name="stories" type="number" step="1" min="1" value="1" required></div>
+            <div class="field"><label>Parking</label><input name="parking" type="number" step="1" min="0" value="0" required></div>
+            <div class="field"><label>Furnishing</label>
+              <select name="furnishingstatus" required>
+                <option value="furnished">Furnished</option>
+                <option value="semi-furnished">Semi-furnished</option>
+                <option value="unfurnished">Unfurnished</option>
+              </select>
+            </div>
+            <div class="field"><label>Main road</label><select name="mainroad"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label>Guestroom</label><select name="guestroom"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label>Basement</label><select name="basement"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label>Hot water heating</label><select name="hotwaterheating"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label>Air conditioning</label><select name="airconditioning"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label>Preferred area</label><select name="prefarea"><option value="0">No</option><option value="1">Yes</option></select></div>
+          </div>
+
+          <div class="actions">
+            <button id="predict-btn" type="button" class="btn primary">Get Estimate</button>
+            <button id="reset-btn" type="reset" class="btn">Reset</button>
+          </div>
+
+          <p class="note">Tip: realistic area and bedroom values yield better estimates.</p>
+          <footer class="creator">Created by <strong>Anthony MBOUMBA</strong></footer>
+        </form>
+      </aside>
+
+      <main class="right" aria-live="polite">
+        <div class="card">
+          <div class="card-header">
+            <div class="title">
+              <h2>Estimated Price</h2>
+              <div id="status" class="status">Waiting for input</div>
+            </div>
+            <div class="model">Model: <span id="model-status">unknown</span></div>
+          </div>
+          <div class="card-body">
+            <div id="prediction-value" class="price">—</div>
+            <pre id="prediction-debug" class="debug" hidden></pre>
+          </div>
+          <div class="card-footer"><small class="muted">Results are estimates only</small></div>
+        </div>
+
+        <section class="api-description">
+          <h3>🔍 How It Works</h3>
+          <p>
+            This app sends your input to a backend prediction API powered by a trained regression model.
+            It analyzes features like area, bedrooms, and amenities to estimate the market price.
+            The model is monitored for health and fallback status to ensure reliable predictions.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const predictBtn = document.getElementById('predict-btn');
+      const form = document.getElementById('predict-form');
+      const valueBox = document.getElementById('prediction-value');
+      const debugBox = document.getElementById('prediction-debug');
+      const status = document.getElementById('status');
+      const modelStatus = document.getElementById('model-status');
+
+      async function checkHealth() {
+        try {
+          const r = await fetch('{{ url_for("prediction_bp.health") }}');
+          const j = await r.json();
+          modelStatus.textContent = j.model_loaded ? 'loaded' : 'fallback';
+        } catch (_) {
+          modelStatus.textContent = 'unreachable';
+        }
+      }
+
+      function readPayload() {
+        const fd = new FormData(form);
+        const p = {};
+        fd.forEach((v,k)=>p[k]=v);
+        ['area','bedrooms','bathrooms','stories','parking'].forEach(k=>{
+          if (p[k] !== undefined && p[k] !== '') p[k] = Number(p[k]);
+        });
+        ['mainroad','guestroom','basement','hotwaterheating','airconditioning','prefarea'].forEach(k=>{
+          if (p[k] !== undefined) p[k] = p[k] === '1';
+        });
+        return p;
+      }
+
+      predictBtn.addEventListener('click', async () => {
+        const payload = readPayload();
+
+        if (typeof payload.area !== 'number' || !(payload.area > 0)) {
+          status.textContent = 'Area must be greater than 0';
+          status.classList.add('warn');
+          return;
+        }
+        if (payload.bedrooms < 0 || payload.bathrooms < 0) {
+          status.textContent = 'Bedrooms and bathrooms must be 0 or greater';
+          status.classList.add('warn');
+          return;
+        }
+
+        status.textContent = 'Predicting…'; status.classList.remove('warn');
+        valueBox.textContent = '$ —'; debugBox.hidden = true; debugBox.textContent = '';
+
+        try {
+          const resp = await fetch('{{ url_for("prediction_bp.predict_api") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+          });
+          const json = await resp.json();
+          if (!resp.ok) {
+            status.textContent = 'Error'; valueBox.textContent = '$ —';
+            debugBox.hidden = false; debugBox.textContent = json.error || JSON.stringify(json);
+            return;
+          }
+          const estimate = Number(json.predictions[0]);
+          valueBox.textContent = '$ ' + estimate.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+          debugBox.hidden = false; debugBox.textContent = JSON.stringify(json.features||payload, null, 2);
+          status.textContent = 'Done';
+        } catch (err) {
+          status.textContent = 'Request failed';
+          debugBox.hidden = false; debugBox.textContent = String(err);
+        }
+      });
+
+      document.getElementById('reset-btn').addEventListener('click', () => {
+        valueBox.textContent = '—'; debugBox.hidden = true; debugBox.textContent = '';
+        status.textContent = 'Waiting for input';
+      });
+
+      checkHealth();
+    </script>
+  </body>
+</html>
