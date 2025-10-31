@@ -15,7 +15,7 @@ def health():
     loaded = current_app.config.get('MODEL_PIPELINE') is not None
     return jsonify({"status": "ok", "model_loaded": bool(loaded)}), 200
 
-@prediction_bp.route('/api/predict', methods=['POST'])
+@prediction_bp.route('/Price_Prediction_Api/api/predict', methods=['POST'])
 def predict():
     try:
         data = request.get_json(force=True)
