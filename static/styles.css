@@ -60,15 +60,18 @@ body {
 
 /* Form */
 .form .fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
   margin-top: 30px;
 }
 
 .field {
-  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
 }
 
 .field label {
-  display: block;
   font-weight: 600;
   margin-bottom: 6px;
   color: var(--text);
@@ -76,7 +79,6 @@ body {
 
 .field input,
 .field select {
-  width: 100%;
   padding: 10px;
   border: none;
   border-radius: 6px;
@@ -210,5 +212,9 @@ body {
 
   .left, .right {
     flex: 1 1 100%;
+  }
+
+  .form .fields {
+    grid-template-columns: 1fr;
   }
 }
